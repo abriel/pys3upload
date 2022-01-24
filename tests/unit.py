@@ -49,9 +49,9 @@ class doc_collector_tests(unittest.TestCase):
         self.assertEqual(result, ['123'])
 
     def test_a_single_item_should_still_be_buffered_even_if_it_is_above_the_buffer_size(self):
-        input = ['123456']
+        input = ['123456789']
         result = list(s3upload.data_collector(input, def_buf_size=3))
-        self.assertEqual(result, ['123', '456'])
+        self.assertEqual(result, ['123', '456', '789'])
 
     def test_should_return_rest_of_data_on_last_iteration(self):
         input = ['1234', '56']

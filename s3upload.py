@@ -24,7 +24,7 @@ def data_collector(iterable, def_buf_size=5242880):
     buf = ''
     for data in iterable:
         buf += data
-        if len(buf) >= def_buf_size:
+        while len(buf) >= def_buf_size:
             output = buf[:def_buf_size]
             buf = buf[def_buf_size:]
             yield output
