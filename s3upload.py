@@ -157,6 +157,8 @@ def cli():
                       help='the data to upload to s3 -- if left blank will be read from STDIN')
     parser.add_option('-t', '--threads', dest='threads', default=5, type='int',
                       help='number of threads to use while uploading in parallel')
+    parser.add_option('--no-progress', action='store_true',
+                      help='Avoid of showing progress of the upload')
     (options, args) = parser.parse_args()
 
     if len(sys.argv) < 2:
@@ -178,7 +180,7 @@ def cli():
         print part_no, uploaded, total
 
     upload(options.bucket, options.aws_key, options.aws_secret, data_collector(data), options.key,
-           progress_cb=cb, replace=True, threads=options.threads)
+           progress_cb=(None if options.no_progress else cb), replace=True, threads=options.threads)
 
 if __name__ == '__main__':
     cli()
