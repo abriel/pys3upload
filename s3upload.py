@@ -11,6 +11,21 @@ except ImportError:
     import StringIO
 
 
+def iterate_stream(fd, def_buf_size=5242880):
+    ''' Iterates data from a given file descriptor by a chunks
+
+        Args:
+            fd: file object
+            def_buf_size: number of bytes to buffer, default is 5mb
+
+        Returns:
+            A generator object
+    '''
+    while True:
+        data = fd.read(def_buf_size)
+        if not data: break
+        yield data
+
 def data_collector(iterable, def_buf_size=5242880):
     ''' Buffers n bytes of data
 
@@ -21,6 +36,11 @@ def data_collector(iterable, def_buf_size=5242880):
         Returns:
             A generator object
     '''
+    # If the iterable is an object that supports read method, iterate it as a data stream
+    if hasattr(iterable, 'read'):
+        for x in iterate_stream(iterable, def_buf_size): yield x
+        return
+
     buf = ''
     for data in iterable:
         buf += data
