@@ -1,15 +1,13 @@
+from __future__ import print_function
+import os
 import sys
 import time
 import threading
 import contextlib
-import Queue
+from queue import Queue, Empty
 from multiprocessing import pool
-try:
-    import cStringIO
-    StringIO = cStringIO
-except ImportError:
-    import StringIO
-
+from io import BytesIO
+from io import StringIO
 
 def iterate_stream(fd, def_buf_size=5242880):
     ''' Iterates data from a given file descriptor by a chunks
@@ -21,9 +19,12 @@ def iterate_stream(fd, def_buf_size=5242880):
         Returns:
             A generator object
     '''
+    # Reopen stream in binary mode
+    stdin = os.fdopen(fd.fileno(), 'rb')
+
     while True:
-        data = fd.read(def_buf_size)
-        if not data: break
+        data = BytesIO(stdin.read(def_buf_size))
+        if data.seek(0, 2) == 0: break
         yield data
 
 def data_collector(iterable, def_buf_size=5242880):
@@ -52,20 +53,24 @@ def data_collector(iterable, def_buf_size=5242880):
         yield buf
 
 def upload_part(upload_func, progress_cb, part_no, part_data):
-    num_retries = 5
-    def _upload_part(retries_left=num_retries):
+    num_retries = retries_left = 5
+    cb = lambda c,t:progress_cb(part_no, c, t) if progress_cb else None
+
+    if not hasattr(part_data, 'read'):
+        part_data = StringIO(part_data)
+
+    while retries_left > 0:
         try:
-            with contextlib.closing(StringIO.StringIO(part_data)) as f:
-                f.seek(0)
-                cb = lambda c,t:progress_cb(part_no, c, t) if progress_cb else None
-                upload_func(f, part_no, cb=cb, num_cb=100)
-        except Exception, exc:
+            part_data.seek(0)
+            upload_func(part_data, part_no, cb=cb, num_cb=100)
+            break
+        except Exception as exc:
             retries_left -= 1
-            if retries_left > 0:
-                return _upload_part(retries_left=retries_left)
-            else:
+            if retries_left == 0:
                 return threading.ThreadError(repr(threading.current_thread()) + ' ' + repr(exc))
-    return _upload_part()
+
+    del part_data
+    return None
 
 def upload(bucket, aws_access_key, aws_secret_key,
            iterable, key, progress_cb=None,
@@ -98,7 +103,7 @@ def upload(bucket, aws_access_key, aws_secret_key,
         raise Exception('s3 key ' + key + ' already exists')
 
     multipart_obj = b.initiate_multipart_upload(key)
-    err_queue = Queue.Queue()
+    err_queue = Queue()
     lock = threading.Lock()
     upload.counter = 0
 
@@ -108,7 +113,7 @@ def upload(bucket, aws_access_key, aws_secret_key,
         def check_errors():
             try:
                 exc = err_queue.get(block=False)
-            except Queue.Empty:
+            except Empty:
                 pass
             else:
                 raise exc
@@ -177,7 +182,7 @@ def cli():
     data = sys.stdin if not options.data else [options.data]
 
     def cb(part_no, uploaded, total):
-        print part_no, uploaded, total
+        print(part_no, uploaded, total)
 
     upload(options.bucket, options.aws_key, options.aws_secret, data_collector(data), options.key,
            progress_cb=(None if options.no_progress else cb), replace=True, threads=options.threads)

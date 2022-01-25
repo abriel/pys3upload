@@ -19,6 +19,6 @@ setup(
             's3upload = s3upload:cli',
         ],
     },
-    install_requires = ['boto>=2.26'],
+    install_requires = ['boto>=2.26', 'future>=0.18'],
     keywords = ['s3', 'multipart', 'upload', 'amazon'],
 )
